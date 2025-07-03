@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可視化控管評估</title>
+    <style>
+        html {
+            background-color: #181818;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden; /* 防止水平滾動 */
+        }
+        body {
+            font-family: 'Century Gothic', 'Microsoft JhengHei', '微軟正黑體', sans-serif;
+            min-height: 100vh;
+            background: transparent url('blackground1.png') no-repeat center center;
+            background-size: cover;
+            background-attachment: fixed;
+            color: #fff;
+        }
+
+        .main-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        .content-container {
+            display: flex;
+            align-items: flex-start; /* 向上置頂對齊 */
+            width: 100%; /* 確保容器佔滿可用寬度 */
+            max-width: 1300px; /* 增加整體最大寬度 */
+            gap: 60px; /* 增加左右兩欄間距 */
+        }
+
+        .left-panel {
+            flex: 1.5; /* 左側佔用較多空間 */
+            padding: 20px;
+        }
+
+        .gigamon-logo {
+            width: 200px;
+            margin-bottom: 25px;
+        }
+
+        .main-title {
+            font-size: 3.2em;
+            font-weight: 300;
+            margin-bottom: 15px;
+        }
+
+        .main-subtitle {
+            font-size: 1.5em;
+            font-weight: 300;
+            margin-bottom: 25px;
+            opacity: 0.9;
+        }
+
+        .main-highlight {
+            color: #ff8000;
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 25px;
+            display: block;
+        }
+
+        .main-list {
+            margin: 0 0 30px 0;
+            padding: 0;
+            list-style: none;
+        }
+        .main-list li {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            position: relative;
+            padding-left: 2em;
+        }
+        .main-list li::before {
+            content: '✓';
+            color: #ff8000;
+            font-size: 1.2em;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        .copyright {
+            position: fixed;
+            bottom: 20px;
+            left: 40px; /* 靠左對齊，並留有邊距 */
+            width: auto; /* 寬度由內容決定 */
+            text-align: left; /* 文字靠左 */
+            color: #aaa;
+            font-size: 0.9em;
+            z-index: 1000; /* 確保在最上層 */
+            padding: 0 15px; /* 防止在小螢幕上貼邊 */
+        }
+
+        .right-panel {
+            flex: 1; /* 右側佔用較少空間 */
+            width: 100%;
+            padding: 20px;
+        }
+
+        .form-container {
+            background: #fff;
+            background: rgba(255, 255, 255, 0.9); /* 稍微透明的白色背景 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            box-sizing: border-box;
+            color: #333;
+            border-radius: 15px; /* 四周圓弧 */
+        }
+        .form-container h2 {
+            font-size: 1.6em;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 30px;
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px; /* 縮小行距 */
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-size: 0.95em;
+            font-weight: 600;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 1em;
+            box-sizing: border-box;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1), 0 1px 0 rgba(255,255,255,0.5); /* 3D 立體感 */
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #ff8000;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1), 0 0 0 3px rgba(255, 128, 0, 0.2); /* 保持焦點陰影 */
+        }
+        .required {
+            color: #ff8000;
+            margin-left: 4px;
+        }
+        .form-check {
+            margin: 20px 0;
+            font-size: 0.9em;
+            color: #555;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .form-check input[type="checkbox"] {
+            margin-right: 10px;
+            margin-top: 3px;
+            flex-shrink: 0;
+        }
+        .privacy-text {
+            flex: 1;
+        }
+        .form-btn {
+            width: auto;
+            background: #ff8000;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1em;
+            font-weight: bold;
+            padding: 10px 20px;
+            margin-top: 0;
+            margin-left: auto;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .form-btn:hover {
+            background: #e67300;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .content-container {
+                flex-direction: column; /* 在小螢幕上堆疊 */
+                gap: 20px;
+            }
+            .left-panel, .right-panel {
+                flex-basis: auto;
+                width: 100%;
+                max-width: 600px;
+                padding: 20px 0;
+            }
+            .left-panel {
+                text-align: center;
+            }
+            .main-list {
+                text-align: left;
+                display: inline-block;
+            }
+            .main-report-img {
+                text-align: center;
+            }
+            .main-list {
+                text-align: left;
+                display: inline-block;
+            }
+            .main-report-img {
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-content {
+                padding: 20px 15px;
+            }
+            .copyright {
+                left: 15px; /* 在小螢幕上調整左邊距 */
+                right: 15px; /* 防止溢出 */
+                width: auto;
+                transform: none; /* 移除 transform */
+            }
+            .form-container {
+                padding: 25px;
+            }
+            .form-container h2 {
+                font-size: 1.4em;
+            }
+        }        
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div class="content-container">
+            <div class="left-panel">
+                <img src="gigamon_logo.avif" alt="Gigamon Logo" class="gigamon-logo">
+                <div class="main-title">可視化控管評估</div>
+                <div class="main-subtitle">Visibility Control and Management Assessment</div>
+                <span class="main-highlight">只需幾分鐘即可獲得專屬的可視性控管健康診斷報告</span>
+                <ul class="main-list">
+                    <li>識別並評估「流量風險」與「工具效益落差」</li>
+                    <li>快速盤點與改善「可視性架構」的完整性</li>
+                    <li><b>Gigamon</b>專家團隊派協助規劃「短中長期藍圖」，提供發展建議</li>
+            </div>
+            <div class="right-panel">
+                <form class="form-container">
+                    <h2>填寫以下表格開始評估</h2>
+                    <div class="form-group">
+                        <label for="user-name">姓名<span class="required">*</span></label>
+                        <input type="text" id="user-name" name="user-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user-contact-phone">聯絡電話<span class="required">*</span></label>
+                        <input type="tel" id="user-contact-phone" name="user-contact-phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user-mobile-phone">手機<span class="required">*</span></label>
+                        <input type="tel" id="user-mobile-phone" name="user-mobile-phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user-company">公司名稱<span class="required">*</span></label>
+                        <input type="text" id="user-company" name="user-company" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user-title">職務<span class="required">*</span></label>
+                        <input type="text" id="user-title" name="user-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user-email">電子郵件<span class="required">*</span></label>
+                        <input type="email" id="user-email" name="user-email" required>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" id="privacy-check" required>
+                        <span class="privacy-text">我同意逸盈科技依據隱私權政策蒐集、處理並使用本人提供的個人資料，用於此次免費服務與後續 Gigamon 相關產品與活動資訊通知。</span>
+                        <button type="submit" class="form-btn">開始評估</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="copyright">Authorized Distributor © NetFos Technology Corporation.</div>
+    <script>
+        document.querySelector('.form-container').addEventListener('submit', function(event) {
+            // 獲取所有相關的輸入元素
+            const userNameInput = document.getElementById('user-name');
+            const userEmailInput = document.getElementById('user-email');
+            event.preventDefault(); // 防止表單直接提交
+
+            const userInfo = {
+                name: document.getElementById('user-name').value.trim(),
+                contactPhone: document.getElementById('user-contact-phone').value.trim(),
+                mobilePhone: document.getElementById('user-mobile-phone').value.trim(),
+                company: document.getElementById('user-company').value.trim(),
+                title: document.getElementById('user-title').value.trim(),
+                email: document.getElementById('user-email').value.trim(),
+            };
+
+            // 1. 檢查所有必填欄位和隱私權同意
+            if (!userInfo.name || !userInfo.contactPhone || !userInfo.mobilePhone || !userInfo.company || !userInfo.title || !userInfo.email || !document.getElementById('privacy-check').checked) {
+                alert('請填寫所有必填欄位並同意隱私權政策。');
+                return;
+            }
+
+            // 2. 姓名部分不可以有阿拉伯數字
+            if (/\d/.test(userInfo.name)) {
+                alert('姓名中不能包含數字。');
+                userNameInput.focus(); // 將焦點移回姓名欄位
+                return;
+            }
+
+            // 3. 電子郵件輸入免費的郵件信箱(gmail, yahoo 等)也要提醒用戶
+            const freeEmailDomains = [
+                'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com',
+                'icloud.com', 'qq.com', '163.com', 'sina.com', 'live.com', 'msn.com'
+            ];
+            const emailDomain = userInfo.email.split('@')[1]; // 獲取郵箱域名部分
+
+            if (emailDomain && freeEmailDomains.some(domain => emailDomain.toLowerCase() === domain)) {
+                alert('您輸入的電子郵件地址似乎是免費郵箱。建議使用公司或組織的電子郵件地址，以便我們更好地為您提供服務。');
+                userEmailInput.focus(); // 將焦點移回電子郵件欄位
+                return; // 阻止表單提交
+            }
+
+            // 將使用者資訊存到 localStorage
+            localStorage.setItem('assessmentUserInfo', JSON.stringify(userInfo));
+
+            // 導向到問卷頁面
+            window.location.href = 'questionnaire.html'; 
+        });
+    </script>
+</body>
+</html>
