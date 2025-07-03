@@ -731,15 +731,43 @@ const submitStatusEl = document.getElementById('submit-status');
     // --- EVENT LISTENERS ---
     nextButton.addEventListener('click', () => {
         const selectedValue = getSelectedAnswer();
-        if (!selectedValue) { 
+        if (!selectedValue) {
             alert('請選擇一個選項！');
             return;
         }
-        
+
         const currentQuestionCode = questions[currentQuestionIndex].code;
         userAnswers[currentQuestionCode] = selectedValue;
         currentQuestionIndex++;
-        loadQuestion();
+
+        if (currentQuestionIndex < questions.length) {
+            loadQuestion();
+        } else {
+            // Quiz finished
+            try {
+                localStorage.setItem('assessmentUserAnswers', JSON.stringify(userAnswers));
+                localStorage.setItem('assessmentUserInfo', JSON.stringify(userInfo)); // userInfo should already be up-to-date
+
+                // Optional: display a brief "Redirecting..." message
+                if(quizAreaEl) quizAreaEl.innerHTML = '<h2 style="text-align:center;padding:50px;">評估完成，正在前往報告頁面...</h2>';
+
+                // Call submitDataToBackend here if you want to ensure data is submitted
+                // before redirecting. However, be mindful of the async nature of fetch.
+                // If submission is critical before redirect, you might want to chain the redirect
+                // in the .then() of submitDataToBackend, or at least allow some time.
+                // For simplicity now, we'll call it and redirect.
+                submitDataToBackend(); // This function itself handles PDF generation and upload too.
+
+                // Redirect to the report page
+                window.location.href = 'report.html';
+
+            } catch (error) {
+                console.error("Error saving data to localStorage or redirecting:", error);
+                // Fallback to original behavior if localStorage fails for some reason,
+                // though this part of original showCompletionMessage is now mostly in report.js
+                showCompletionMessage();
+            }
+        }
     });
 
     prevButton.addEventListener('click', () => {

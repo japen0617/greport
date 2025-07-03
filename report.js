@@ -235,17 +235,32 @@ document.addEventListener('DOMContentLoaded', () => {
         "工具有效性 Tool Effectiveness": { high: 8, medium: 12 }
     };
 
-    // --- SIMULATED STATE (for static report display) ---
-    // In a real scenario, this data would come from the questionnaire or a backend
-    const userAnswers = {
+    // --- STATE (Try to load from localStorage, fallback to simulated data) ---
+    let userAnswers = { // Default simulated answers
         "1-1": "Yes", "1-2": "Conditional", "1-3": "No", "1-4": "Yes", "1-5": "Conditional",
         "2-1": "Yes", "2-2": "Conditional", "2-3": "No", "2-4": "Yes", "2-5": "Conditional",
         "3-1": "Yes", "3-2": "Conditional", "3-3": "No", "3-4": "Yes", "3-5": "Conditional"
     };
-    // userInfo is not directly used in displayResultsAndRecommendations for the report content itself,
-    // but was part of the submission payload. For a static report, it's not strictly needed
-    // unless some part of the static report template uses it (e.g. "Report for [User Name]").
-    // const userInfo = { name: "測試使用者", company: "測試公司", email: "test@example.com" };
+    let userInfo = { name: "測試使用者", company: "測試公司", email: "test@example.com" }; // Default simulated user info
+
+    try {
+        const storedAnswers = localStorage.getItem('assessmentUserAnswers');
+        const storedUserInfo = localStorage.getItem('assessmentUserInfo');
+
+        if (storedAnswers) {
+            userAnswers = JSON.parse(storedAnswers);
+            // Optionally, clear it from localStorage after use if it's a one-time transfer
+            // localStorage.removeItem('assessmentUserAnswers');
+        }
+        if (storedUserInfo) {
+            userInfo = JSON.parse(storedUserInfo);
+            // Optionally, clear it
+            // localStorage.removeItem('assessmentUserInfo');
+        }
+    } catch (error) {
+        console.error("Error loading data from localStorage:", error);
+        // Fallback to simulated data is already handled by default assignment
+    }
 
     // --- DOM ELEMENTS (Copied from questionnaire.js) ---
     const userSummaryEl = document.getElementById('user-summary');
@@ -445,8 +460,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        // Removed submitDataToBackend() as this is a static report display
-        // console.log("Static report displayed. Simulated data used:", { userAnswers });
+        // Removed submitDataToBackend() call as data submission is handled by questionnaire.js before redirect.
+        // console.log("Static report displayed. Data used:", { userAnswers, userInfo });
     }
 
     function exportReportAsPDF() {
