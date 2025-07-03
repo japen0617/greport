@@ -681,19 +681,22 @@ const submitStatusEl = document.getElementById('submit-status');
             userEmail: userInfo.email,
             pdfBase64: base64
         };
-        fetch("https://script.google.com/macros/s/AKfycbxT8NYmSFt-NltBOt-uAj3sC7UqxV8eVaFL8PQQcCxt-EcmbrV9jpu8NlRz6Wdoynxg/exec", {
+        // Return the fetch promise
+        return fetch("https://script.google.com/macros/s/AKfycbxT8NYmSFt-NltBOt-uAj3sC7UqxV8eVaFL8PQQcCxt-EcmbrV9jpu8NlRz6Wdoynxg/exec", {
             method: "POST",
             mode: "no-cors",
             body: JSON.stringify(payload),
             headers: { "Content-Type": "application/json" }
         }).catch(err => {
             console.error('PDF 上傳失敗:', err);
+            throw err; // Re-throw to be caught by the caller if needed
         });
     }
 
     function submitDataToBackend() {
-        const answerTexts = {};
-        Object.keys(userAnswers).forEach(code => {
+        return new Promise((resolve, reject) => {
+            const answerTexts = {};
+            Object.keys(userAnswers).forEach(code => {
             const q = questions.find(q => q.code === code);
             if (q && q.options[userAnswers[code]]) {
                 answerTexts[code] = q.options[userAnswers[code]];
@@ -712,22 +715,56 @@ const submitStatusEl = document.getElementById('submit-status');
             answers: answerTexts
         };
 
-        fetch("https://script.google.com/macros/s/AKfycbxT8NYmSFt-NltBOt-uAj3sC7UqxV8eVaFL8PQQcCxt-EcmbrV9jpu8NlRz6Wdoynxg/exec", {
+        const answersSubmissionPromise = fetch("https://script.google.com/macros/s/AKfycbxT8NYmSFt-NltBOt-uAj3sC7UqxV8eVaFL8PQQcCxt-EcmbrV9jpu8NlRz6Wdoynxg/exec", {
             method: "POST",
             mode: "no-cors",
             body: JSON.stringify(payload),
             headers: { "Content-Type": "application/json" }
         })
         .then(() => {
-            submitStatusEl.innerHTML = '<div class="submit-success">✅ 評估結果已成功提交！</div>';
+            if (submitStatusEl) submitStatusEl.innerHTML = '<div class="submit-success">✅ 評估結果已成功提交！</div>';
         })
         .catch(err => {
-            submitStatusEl.innerHTML = '<div class="submit-error">❌ 提交失敗：' + err + '</div>';
+            if (submitStatusEl) submitStatusEl.innerHTML = '<div class="submit-error">❌ 答案提交失敗：' + err + '</div>';
+            console.error("Answers submission fetch error:", err);
+            // Potentially reject here if answers must be submitted for PDF to be relevant
+            // reject(err);
+            // return Promise.reject(err); // Stop further processing in this chain
         });
 
-        // 上傳 PDF
-        generateReportPdfBase64().then(uploadPdfBase64);
+        const pdfChainPromise = answersSubmissionPromise.then(() => {
+            // Only proceed to PDF generation if answer submission part is considered "done"
+            // (acknowledging "no-cors" limitations)
+            return generateReportPdfBase64().then(base64 => {
+                return uploadPdfBase64(base64);
+            });
+        }).catch(pdfError => {
+            console.error('PDF generation or upload failed:', pdfError);
+            if (submitStatusEl) {
+                const errorMsg = submitStatusEl.innerHTML || "";
+                submitStatusEl.innerHTML = errorMsg + '<div class="submit-error">❌ PDF 處理失敗：' + pdfError + '</div>';
+            }
+            // We might still want to resolve the main promise if answers were sent,
+            // or reject if PDF is critical. For now, let's ensure it doesn't break Promise.allSettled.
+            return Promise.reject(pdfError); // Make sure this error is trackable by allSettled
+        });
+
+        // Wait for all operations.
+        Promise.allSettled([answersSubmissionPromise, pdfChainPromise])
+            .then((results) => {
+                console.log("Submission attempts results:", results);
+                // Resolve the main promise regardless of individual outcomes due to "no-cors"
+                // The user will see individual status messages.
+                resolve();
+            })
+            .catch(finalError => {
+                // This catch is for an error in Promise.allSettled itself, which is very unlikely.
+                console.error("Critical error in submission process:", finalError);
+                reject(finalError);
+            });
+        });
     }
+
     // --- EVENT LISTENERS ---
     nextButton.addEventListener('click', () => {
         const selectedValue = getSelectedAnswer();
@@ -744,29 +781,33 @@ const submitStatusEl = document.getElementById('submit-status');
             loadQuestion();
         } else {
             // Quiz finished
-            try {
-                localStorage.setItem('assessmentUserAnswers', JSON.stringify(userAnswers));
-                localStorage.setItem('assessmentUserInfo', JSON.stringify(userInfo)); // userInfo should already be up-to-date
+            if(quizAreaEl) quizAreaEl.innerHTML = '<h2 style="text-align:center;padding:50px;">評估完成，正在提交並前往報告頁面...</h2>';
+            if(nextButton) nextButton.disabled = true;
+            if(prevButton) prevButton.disabled = true;
+            if(loadingEl) loadingEl.style.display = 'block';
+            if(submitStatusEl) submitStatusEl.innerHTML = ''; // Clear previous status
 
-                // Optional: display a brief "Redirecting..." message
-                if(quizAreaEl) quizAreaEl.innerHTML = '<h2 style="text-align:center;padding:50px;">評估完成，正在前往報告頁面...</h2>';
-
-                // Call submitDataToBackend here if you want to ensure data is submitted
-                // before redirecting. However, be mindful of the async nature of fetch.
-                // If submission is critical before redirect, you might want to chain the redirect
-                // in the .then() of submitDataToBackend, or at least allow some time.
-                // For simplicity now, we'll call it and redirect.
-                submitDataToBackend(); // This function itself handles PDF generation and upload too.
-
-                // Redirect to the report page
-                window.location.href = 'report.html';
-
-            } catch (error) {
-                console.error("Error saving data to localStorage or redirecting:", error);
-                // Fallback to original behavior if localStorage fails for some reason,
-                // though this part of original showCompletionMessage is now mostly in report.js
-                showCompletionMessage();
-            }
+            submitDataToBackend().then(() => {
+                console.log("All submission processes attempted.");
+                try {
+                    localStorage.setItem('assessmentUserAnswers', JSON.stringify(userAnswers));
+                    localStorage.setItem('assessmentUserInfo', JSON.stringify(userInfo));
+                    window.location.href = 'report.html';
+                } catch (e) {
+                    console.error("Error saving to localStorage or redirecting after submission:", e);
+                     alert("評估結果提交嘗試完畢，但自動跳轉失敗。您可以嘗試手動前往報告頁面。");
+                }
+            }).catch(submissionOverallError => {
+                // This catch block might be redundant if submitDataToBackend always resolves
+                // due to "no-cors" and Promise.allSettled.
+                // However, keeping it for safety.
+                console.error("Main submission process failed:", submissionOverallError);
+                if(quizAreaEl) quizAreaEl.innerHTML = `<h2 style="text-align:center;padding:50px;">提交過程中發生錯誤，請稍後再試。</h2>`;
+                if(nextButton) nextButton.disabled = false;
+                if(prevButton) prevButton.disabled = false;
+            }).finally(() => {
+                 if(loadingEl) loadingEl.style.display = 'none';
+            });
         }
     });
 
